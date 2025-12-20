@@ -1,5 +1,6 @@
 package edu.wgu.dcn2.backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -20,12 +21,25 @@ public class Cart {
     @Column(name = "cart_id")
     private Long cartId;
 
+    // Angular sends "id"
+    @JsonProperty("id")
+    public Long getId() {
+        return cartId;
+    }
+
+    @JsonProperty("id")
+    public void setId(Long id) {
+        this.cartId = id;
+    }
+
     @NotNull
     @Column(name = "package_price")
+    @JsonProperty("package_price")
     private Double packagePrice;
 
     @NotNull
     @Column(name = "party_size")
+    @JsonProperty("party_size")
     private Integer partySize;
 
     @Enumerated(EnumType.STRING)

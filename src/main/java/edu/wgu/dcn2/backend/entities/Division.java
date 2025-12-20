@@ -1,5 +1,6 @@
 package edu.wgu.dcn2.backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,9 +9,10 @@ import java.util.Set;
 
 @Entity
 @Table(name = "divisions")
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
-
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Division {
 
     @Id
@@ -26,6 +28,6 @@ public class Division {
     private Country country;
 
     @OneToMany(mappedBy = "division")
+    @JsonIgnore
     private Set<Customer> customers = new HashSet<>();
-
 }
