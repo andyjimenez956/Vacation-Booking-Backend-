@@ -1,6 +1,7 @@
 package edu.wgu.dcn2.backend.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.util.HashSet;
@@ -19,9 +20,11 @@ public class Cart {
     @Column(name = "cart_id")
     private Long cartId;
 
+    @NotNull
     @Column(name = "package_price")
     private Double packagePrice;
 
+    @NotNull
     @Column(name = "party_size")
     private Integer partySize;
 
@@ -40,7 +43,6 @@ public class Cart {
     private Set<CartItem> cartItems = new HashSet<>();
 
     public void add(CartItem item) {
-        if (item == null) return;
         cartItems.add(item);
         item.setCart(this);
     }
