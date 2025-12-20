@@ -1,5 +1,6 @@
 package edu.wgu.dcn2.backend.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,15 +9,18 @@ import java.util.Set;
 
 @Entity
 @Table(name = "cart_items")
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
-
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class CartItem {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "cart_item_id")
     private Long cartItemId;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "cart_id")
     private Cart cart;

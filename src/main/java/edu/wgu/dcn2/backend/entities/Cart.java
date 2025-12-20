@@ -3,16 +3,17 @@ package edu.wgu.dcn2.backend.entities;
 import jakarta.persistence.*;
 import lombok.*;
 
-import javax.smartcardio.CardTerminal;
 import java.util.HashSet;
 import java.util.Set;
 
 @Entity
 @Table(name = "carts")
-@Getter @Setter
-@NoArgsConstructor @AllArgsConstructor
-
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Cart {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "cart_id")
@@ -37,4 +38,10 @@ public class Cart {
 
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL)
     private Set<CartItem> cartItems = new HashSet<>();
+
+    public void add(CartItem item) {
+        if (item == null) return;
+        cartItems.add(item);
+        item.setCart(this);
+    }
 }
