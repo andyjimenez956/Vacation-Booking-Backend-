@@ -7,6 +7,7 @@ import lombok.*;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "carts")
@@ -22,14 +23,14 @@ public class Cart {
     private Long cartId;
 
     // Angular sends "id"
-    @JsonProperty("id")
+    @com.fasterxml.jackson.annotation.JsonProperty("id")
     public Long getId() {
         return cartId;
     }
 
-    @JsonProperty("id")
+    @com.fasterxml.jackson.annotation.JsonProperty("id")
     public void setId(Long id) {
-        this.cartId = id;
+        this.cartId = (id != null && id == 0) ? null : id;
     }
 
     @NotNull
@@ -56,6 +57,23 @@ public class Cart {
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL)
     private Set<CartItem> cartItems = new HashSet<>();
 
+    @Column(name = "create_date")
+    private LocalDateTime createDate;
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createDate = now;
+        this.lastUpdate = now;
+    }
+
+
+    @Column(name = "last_update")
+    private LocalDateTime lastUpdate;
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.lastUpdate = LocalDateTime.now();
+    }
     public void add(CartItem item) {
         cartItems.add(item);
         item.setCart(this);

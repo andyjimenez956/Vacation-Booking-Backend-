@@ -2,11 +2,15 @@ package edu.wgu.dcn2.backend.services;
 
 import edu.wgu.dcn2.backend.dao.CustomerRepository;
 import edu.wgu.dcn2.backend.dao.DivisionRepository;
-import edu.wgu.dcn2.backend.entities.*;
-
+import edu.wgu.dcn2.backend.entities.Cart;
+import edu.wgu.dcn2.backend.entities.CartItem;
+import edu.wgu.dcn2.backend.entities.Customer;
+import edu.wgu.dcn2.backend.entities.Division;
+import edu.wgu.dcn2.backend.entities.StatusType;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
 
@@ -26,60 +30,55 @@ public class CheckoutServiceImpl implements CheckoutService {
     @Transactional
     public PurchaseResponse placeOrder(Purchase purchase) {
 
+        // --- Pull payload pieces ---
         Customer incomingCustomer = purchase.getCustomer();
         Cart cart = purchase.getCart();
         Set<CartItem> cartItems = purchase.getCartItems();
 
-        // ---------------------------------------------------
-        // 0) IMPORTANT: if Angular sends cart id = 0, make it null
-        // to force INSERT (avoid StaleObjectStateException Cart#0)
-        // ---------------------------------------------------
-        if (cart.getCartId() != null && cart.getCartId() == 0L) {
-            cart.setCartId(null);
+        // ------------------------------------------------------------
+        // 0) IMPORTANT: Angular often sends id: 0 for new entities.
+        //    Force Hibernate to INSERT by setting IDs to null.
+        // ------------------------------------------------------------
+        cart.setCartId(null);
+        for (CartItem item : cartItems) {
+            item.setCartItemId(null);
         }
 
-        // ---------------------------------------------------
-        // 1) Ensure cart has required values + set ORDERED
-        // ---------------------------------------------------
-        if (cart.getPackagePrice() == null) {
-            throw new RuntimeException("package_price is required");
-        }
-        if (cart.getPartySize() == null) {
-            throw new RuntimeException("party_size is required");
-        }
-
-        cart.setStatus(StatusType.ORDERED); // ✅ THIS is what the evaluator wants
-
-        // ---------------------------------------------------
-        // 2) Customer handling
-        // If customer id exists, load from DB, update fields
-        // If new customer, division_id must be provided and converted to Division
-        // ---------------------------------------------------
+        // ------------------------------------------------------------
+        // 1) Customer handling: use existing customer if id provided,
+        //    otherwise create a new customer and resolve division_id.
+        // ------------------------------------------------------------
         Customer customerToSave;
 
-        Long incomingId = incomingCustomer.getCustomerId();
-        if (incomingId != null && incomingId > 0) {
+        if (incomingCustomer.getCustomerId() != null) {
+            // Existing customer
+            customerToSave = customerRepository.findById(incomingCustomer.getCustomerId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Customer not found: " + incomingCustomer.getCustomerId()));
 
-            customerToSave = customerRepository.findById(incomingId)
-                    .orElseThrow(() -> new RuntimeException("Customer not found: " + incomingId));
-
-            // update basic fields (safe)
+            // Update basic fields (safe)
             customerToSave.setFirstName(incomingCustomer.getFirstName());
             customerToSave.setLastName(incomingCustomer.getLastName());
             customerToSave.setAddress(incomingCustomer.getAddress());
             customerToSave.setPostalCode(incomingCustomer.getPostalCode());
             customerToSave.setPhone(incomingCustomer.getPhone());
 
-            // keep existing division (do not require division_id again)
+            // If you want to allow changing division, uncomment and use division_id:
+            // Long divId = incomingCustomer.getDivisionId();
+            // if (divId != null) {
+            //     Division division = divisionRepository.findById(divId)
+            //             .orElseThrow(() -> new RuntimeException("Division not found: " + divId));
+            //     customerToSave.setDivision(division);
+            // }
 
         } else {
-
+            // New customer
             customerToSave = incomingCustomer;
 
-            // Convert division_id -> Division entity for DB FK
+            // Resolve division (Angular sends division_id as number)
             Long divId = incomingCustomer.getDivisionId();
             if (divId == null) {
-                throw new RuntimeException("division_id is required for new customers");
+                throw new RuntimeException("division_id is required when creating a new customer");
             }
 
             Division division = divisionRepository.findById(divId)
@@ -88,19 +87,37 @@ public class CheckoutServiceImpl implements CheckoutService {
             customerToSave.setDivision(division);
         }
 
-        // ---------------------------------------------------
-        // 3) Tracking number + attach cart + items
-        // ---------------------------------------------------
+        // ------------------------------------------------------------
+        // 2) Cart fields required by rubric + DB
+        // ------------------------------------------------------------
+        cart.setStatus(StatusType.ORDERED);
+
+        // timestamps (so create_date / last_update are NOT NULL)
+        LocalDateTime now = LocalDateTime.now();
+        cart.setCreateDate(now);
+        cart.setLastUpdate(now);
+
+        for (CartItem item : cartItems) {
+            item.setCreateDate(now);
+            item.setLastUpdate(now);
+        }
+
+        // tracking number
         String orderTrackingNumber = UUID.randomUUID().toString();
         cart.setOrderTrackingNumber(orderTrackingNumber);
 
-        // attach items to cart
+        // ------------------------------------------------------------
+        // 3) Link relationships (IMPORTANT)
+        // ------------------------------------------------------------
+        // Cart -> CartItems
         cartItems.forEach(cart::add);
 
-        // attach cart to customer
+        // Customer -> Cart (also sets cart.customer via your add() method)
         customerToSave.add(cart);
 
-        // save everything
+        // ------------------------------------------------------------
+        // 4) Save (cascades persist cart + items through customer.add(cart))
+        // ------------------------------------------------------------
         customerRepository.save(customerToSave);
 
         return new PurchaseResponse(orderTrackingNumber);
